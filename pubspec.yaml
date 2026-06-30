@@ -1,0 +1,45 @@
+name: createcart_admin
+description: "CreateCart Admin — manage tenants, menus and orders on the CreateCart API."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0                 # REST client to createcart-api
+  provider: ^6.1.2             # state management (session)
+  google_fonts: ^6.2.1         # Space Grotesk + Plus Jakarta Sans
+  shared_preferences: ^2.2.3   # persist the signed-in session
+  flutter_animate: ^4.5.0      # subtle animations
+  url_launcher: ^6.2.6         # call customers / couriers, open maps
+  intl: ^0.19.0                # order timestamps
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
+
+# Branded launch screen.  Regenerate:  dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#0B1020"
+  image: assets/logo_icon.png
+  android_12:
+    color: "#0B1020"
+    image: assets/logo_icon.png
+
+# App launcher icon.  Regenerate:  dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/logo_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#0B1020"
+  adaptive_icon_foreground: "assets/logo_icon.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo_icon.png
