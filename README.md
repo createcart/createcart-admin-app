@@ -45,6 +45,7 @@ The signed-in session (role + credentials) is persisted on the device with `shar
 - **One item:** tap it → editor → **🗑** to delete, or edit any field and **Save**.
 - **Stock toggles are staged:** flip any number of items in/out of stock, then a **Save bar** applies them together and re-queries — so rapid toggles never race or show stale state. **Discard** reverts.
 - **Whole menu:** **⋮ → Delete entire menu** (type `DELETE`) removes every item + combo (keeps categories).
+- **Weight (grams):** set per item — drives accurate delivery quotes and the declared shipment weight. Blank uses the platform default.
 
 ---
 
@@ -58,8 +59,13 @@ placed  ->  confirmed  ->  preparing  ->  out_for_delivery  ->  delivered
    \---------------- Cancel (any non-terminal state) ----------------/
 ```
 
-- **Assign partner & dispatch** captures the delivery partner's name/phone, then moves the order to *out for delivery*.
-- Order detail shows the customer (one-tap **Call** and **Map**), itemised bill, the delivery partner, and a full status timeline.
+- **Assign partner & dispatch** captures the delivery partner's name/phone, then moves the order to *out for delivery* — for your own riders.
+- **Ship via Delhivery** (shown instead, once the order has a confirmed pincode from checkout) manifests a real courier shipment — generates a waybill, assigns "Delhivery" as the courier with a tracking link, then dispatches. The order card then shows the waybill, live courier status, and **Track** / **Refresh** actions.
+- **Request pickup** (Orders → 🚚 icon) asks the courier to collect the day's manifested shipments.
+- Order detail shows the customer (one-tap **Call** and **Map**), itemised bill, the delivery partner or shipment, and a full status timeline.
+- Cancelling a shipped order also cancels the courier-side shipment (best-effort).
+
+> Shipping runs on a **mock courier** until you configure `DELHIVERY_API_TOKEN` + `DELHIVERY_PICKUP_LOCATION` on the API — see that repo's README. The mock is fully functional for testing the whole flow end-to-end.
 
 ---
 

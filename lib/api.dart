@@ -238,4 +238,37 @@ class AdminApi {
         })));
     return Order.fromJson((data as Map).cast<String, dynamic>());
   }
+
+  // ══════════════════════════ fulfillment (Delhivery) ══════════════════════════
+
+  /// Manifest a real courier shipment for this order (needs a confirmed
+  /// pincode/phone/address on the order). Assigns "Delhivery" as the courier
+  /// with a tracking link, and returns the shipment + the updated order.
+  Future<ShipResult> shipOrder(String tenant, String key, String orderId) async {
+    final data = await _handle(await http.post(
+        _u('/api/$tenant/deliveries/$orderId/ship'), headers: _tenant(key)));
+    return ShipResult.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  /// Pull the courier's latest status for a shipped order (display-only).
+  Future<Shipment> refreshTracking(String tenant, String key, String orderId) async {
+    final data = await _handle(await http.post(
+        _u('/api/$tenant/deliveries/$orderId/tracking/refresh'), headers: _tenant(key)));
+    return Shipment.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  /// Ask the courier to collect today's manifested shipments.
+  Future<PickupResult> schedulePickup(
+    String tenant,
+    String key, {
+    required String date,
+    required String time,
+    required int packageCount,
+  }) async {
+    final data = await _handle(await http.post(
+        _u('/api/$tenant/shipping/pickup'),
+        headers: _tenant(key),
+        body: jsonEncode({'date': date, 'time': time, 'package_count': packageCount})));
+    return PickupResult.fromJson((data as Map).cast<String, dynamic>());
+  }
 }

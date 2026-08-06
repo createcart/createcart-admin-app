@@ -497,6 +497,8 @@ class _ItemEditorState extends State<_ItemEditor> {
   late final _desc = TextEditingController(text: widget.existing?.description ?? '');
   late final _stock = TextEditingController(
       text: widget.existing?.stock != null ? '${widget.existing!.stock}' : '');
+  late final _weight = TextEditingController(
+      text: widget.existing?.weightG != null ? '${widget.existing!.weightG}' : '');
   late bool _available = widget.existing?.available ?? true;
   bool _busy = false;
   String? _err;
@@ -505,7 +507,7 @@ class _ItemEditorState extends State<_ItemEditor> {
 
   @override
   void dispose() {
-    for (final c in [_name, _localized, _price, _category, _icon, _image, _desc, _stock]) {
+    for (final c in [_name, _localized, _price, _category, _icon, _image, _desc, _stock, _weight]) {
       c.dispose();
     }
     super.dispose();
@@ -523,6 +525,7 @@ class _ItemEditorState extends State<_ItemEditor> {
       return;
     }
     final stock = _stock.text.trim().isEmpty ? null : int.tryParse(_stock.text.trim());
+    final weight = _weight.text.trim().isEmpty ? null : int.tryParse(_weight.text.trim());
 
     setState(() { _busy = true; _err = null; });
     final body = <String, dynamic>{
@@ -535,6 +538,7 @@ class _ItemEditorState extends State<_ItemEditor> {
       'description': _desc.text.trim(),
       'available': _available,
       'stock': stock,
+      'weight_g': weight,
     };
     try {
       if (_isEdit) {
@@ -657,6 +661,16 @@ class _ItemEditorState extends State<_ItemEditor> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _weight,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'Weight in grams (for shipping)',
+                hintText: 'e.g. 250 for a small jar',
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
