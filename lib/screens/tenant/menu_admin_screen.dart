@@ -500,6 +500,11 @@ class _ItemEditorState extends State<_ItemEditor> {
   late final _weight = TextEditingController(
       text: widget.existing?.weightG != null ? '${widget.existing!.weightG}' : '');
   late bool _available = widget.existing?.available ?? true;
+  // Fresh/tiffin items are ordered on Swiggy, not this site — only items
+  // explicitly marked "SHIP" (shelf-stable goods: pickles, podi, …) use this
+  // site's own cart + Delhivery checkout. Defaults OFF so new items default to
+  // Swiggy-only, matching today's menu (all tiffins).
+  late bool _shipViaWebsite = widget.existing?.tags.contains('SHIP') ?? false;
   bool _busy = false;
   String? _err;
 
@@ -511,6 +516,13 @@ class _ItemEditorState extends State<_ItemEditor> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  /// Existing tags (SPECIAL, SWEET, …) with "SHIP" added/removed per the toggle.
+  List<String> _mergedTags() {
+    final tags = List<String>.from(widget.existing?.tags ?? [])..remove('SHIP');
+    if (_shipViaWebsite) tags.add('SHIP');
+    return tags;
   }
 
   Future<void> _save() async {
@@ -539,6 +551,7 @@ class _ItemEditorState extends State<_ItemEditor> {
       'available': _available,
       'stock': stock,
       'weight_g': weight,
+      'tags': _mergedTags(),
     };
     try {
       if (_isEdit) {
@@ -720,6 +733,27 @@ class _ItemEditorState extends State<_ItemEditor> {
                 subtitle: Text(_available ? 'Shown as in stock' : 'Shown as out of stock',
                     style: const TextStyle(fontSize: 12.5, color: Ui.muted)),
                 onChanged: (v) => setState(() => _available = v),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Ui.fieldFill,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Ui.border),
+              ),
+              child: SwitchListTile(
+                value: _shipViaWebsite,
+                activeTrackColor: Ui.indigo,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                title: const Text('Ship via this website', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                subtitle: Text(
+                  _shipViaWebsite
+                      ? 'Sold here — goes in the cart, ships via Delhivery'
+                      : 'Fresh item — customers order this on Swiggy instead',
+                  style: const TextStyle(fontSize: 12.5, color: Ui.muted),
+                ),
+                onChanged: (v) => setState(() => _shipViaWebsite = v),
               ),
             ),
             if (_err != null) ...[
