@@ -271,4 +271,22 @@ class AdminApi {
         body: jsonEncode({'date': date, 'time': time, 'package_count': packageCount})));
     return PickupResult.fromJson((data as Map).cast<String, dynamic>());
   }
+
+  /// This tenant's own pickup address / seller info / weight & fee overrides,
+  /// plus what's actually in effect (their overrides layered on the platform
+  /// defaults).
+  Future<TenantShippingSettings> getShippingSettings(String tenant, String key) async {
+    final data = await _handle(await http.get(
+        _u('/api/$tenant/shipping/settings'), headers: _tenant(key)));
+    return TenantShippingSettings.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  /// Partial update — [fields] should map each field to its new value, or to
+  /// `null` to clear an override back to the platform default.
+  Future<TenantShippingSettings> updateShippingSettings(
+      String tenant, String key, Map<String, dynamic> fields) async {
+    final data = await _handle(await http.patch(_u('/api/$tenant/shipping/settings'),
+        headers: _tenant(key), body: jsonEncode(fields)));
+    return TenantShippingSettings.fromJson((data as Map).cast<String, dynamic>());
+  }
 }

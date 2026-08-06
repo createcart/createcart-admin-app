@@ -8,6 +8,7 @@ import '../../theme.dart';
 import '../../widgets.dart';
 import 'orders_screen.dart';
 import 'menu_admin_screen.dart';
+import 'shipping_settings_screen.dart';
 
 class TenantShell extends StatefulWidget {
   const TenantShell({super.key});
@@ -127,6 +128,25 @@ class _AccountTab extends StatelessWidget {
                   _row(Icons.language_rounded, 'Website', s.tenantBaseUrl!),
                 ],
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ShippingSettingsScreen())),
+              leading: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(11)),
+                alignment: Alignment.center,
+                child: const Icon(Icons.local_shipping_outlined, color: Ui.indigo, size: 20),
+              ),
+              title: const Text('Shipping settings',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+              subtitle: const Text('Pickup address, seller info, weight & fee',
+                  style: TextStyle(fontSize: 12.5, color: Ui.muted)),
+              trailing: const Icon(Icons.chevron_right_rounded, color: Ui.muted),
             ),
           ),
           const SizedBox(height: 16),

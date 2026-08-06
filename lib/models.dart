@@ -281,6 +281,65 @@ class ShipResult {
       );
 }
 
+/// One set of shipping/pickup fields — used both for a tenant's own raw
+/// overrides (any field may be null = "not set, inherit the platform
+/// default") and for the merged "effective" values actually used to quote
+/// and ship.
+class ShippingSettings {
+  final String? originPin;
+  final String? originCity;
+  final String? originState;
+  final String? originAddress;
+  final String? originPhone;
+  final String? pickupLocation;
+  final String? sellerName;
+  final String? sellerGstTin;
+  final String? hsnCode;
+  final int? defaultWeightG;
+  final double? handlingFee;
+
+  ShippingSettings({
+    this.originPin,
+    this.originCity,
+    this.originState,
+    this.originAddress,
+    this.originPhone,
+    this.pickupLocation,
+    this.sellerName,
+    this.sellerGstTin,
+    this.hsnCode,
+    this.defaultWeightG,
+    this.handlingFee,
+  });
+
+  factory ShippingSettings.fromJson(Map<String, dynamic> j) => ShippingSettings(
+        originPin: j['origin_pin']?.toString(),
+        originCity: j['origin_city']?.toString(),
+        originState: j['origin_state']?.toString(),
+        originAddress: j['origin_address']?.toString(),
+        originPhone: j['origin_phone']?.toString(),
+        pickupLocation: j['pickup_location']?.toString(),
+        sellerName: j['seller_name']?.toString(),
+        sellerGstTin: j['seller_gst_tin']?.toString(),
+        hsnCode: j['hsn_code']?.toString(),
+        defaultWeightG: j['default_weight_g'] == null ? null : _toInt(j['default_weight_g']),
+        handlingFee: j['handling_fee'] == null ? null : _toDouble(j['handling_fee']),
+      );
+}
+
+/// Response from GET/PATCH .../shipping/settings: the tenant's own raw
+/// overrides ([own], blanks allowed) plus what's actually applied ([effective]).
+class TenantShippingSettings {
+  final ShippingSettings own;
+  final ShippingSettings effective;
+  TenantShippingSettings({required this.own, required this.effective});
+
+  factory TenantShippingSettings.fromJson(Map<String, dynamic> j) => TenantShippingSettings(
+        own: ShippingSettings.fromJson((j['settings'] as Map).cast<String, dynamic>()),
+        effective: ShippingSettings.fromJson((j['effective'] as Map).cast<String, dynamic>()),
+      );
+}
+
 class PickupResult {
   final bool ok;
   final String? pickupId;
