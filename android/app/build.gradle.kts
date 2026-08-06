@@ -14,6 +14,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Required for the "local" flavor's resValue() (custom app_name) below.
+    buildFeatures {
+        resValues = true
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "in.createcart.createcart_admin"
@@ -23,6 +28,21 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    // "prod" (default) talks to the production API. "local" gets a distinct
+    // applicationId + name so it installs *alongside* prod on the same phone —
+    // build it with --dart-define=API_BASE=... to point it at a dev API.
+    flavorDimensions += "env"
+    productFlavors {
+        create("prod") {
+            dimension = "env"
+        }
+        create("local") {
+            dimension = "env"
+            applicationIdSuffix = ".local"
+            resValue("string", "app_name", "CreateCart Admin (Local)")
+        }
     }
 
     buildTypes {

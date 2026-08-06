@@ -5,9 +5,14 @@
 class AppConfig {
   /// CreateCart API base.
   ///   • production (default): the deployed Vercel API.
-  ///   • local dev: Android emulator -> 'http://10.0.2.2:8000';
-  ///               real device -> 'http://YOUR-PC-LAN-IP:8000'.
-  static const String apiBase = 'https://createcart-api.vercel.app';
+  ///   • local dev: override at build time with
+  ///     --dart-define=API_BASE=http://localhost:8000 (works on a real device
+  ///     over `adb reverse tcp:8000 tcp:8000`, or use the emulator's
+  ///     'http://10.0.2.2:8000' / your PC's LAN IP).
+  static const String apiBase = String.fromEnvironment(
+    'API_BASE',
+    defaultValue: 'https://createcart-api.vercel.app',
+  );
 
   /// Default platform-owner username. The real secret is the admin key
   /// (the API's CREATECART_ADMIN_KEY). The username is shown on the console
