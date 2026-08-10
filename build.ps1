@@ -28,7 +28,7 @@ if ($Local) {
     flutter build apk --release --flavor prod
 }
 
-$apk = "build\app\outputs\flutter-apk\$flavor\release\app-$flavor-release.apk"
+$apk = "build\app\outputs\flutter-apk\app-$flavor-release.apk"
 if (-not (Test-Path $apk)) { throw "APK not found at $apk" }
 Write-Host "Built $apk" -ForegroundColor Green
 
