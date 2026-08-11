@@ -50,6 +50,7 @@ class MenuItem {
   final List<String> tags;
   final bool available;
   final int? stock;
+  final int? weightG;
   final int sortOrder;
 
   MenuItem({
@@ -65,6 +66,7 @@ class MenuItem {
     this.tags = const [],
     this.available = true,
     this.stock,
+    this.weightG,
     this.sortOrder = 0,
   });
 
@@ -95,6 +97,7 @@ class MenuItem {
             : const [],
         available: j['available'] == true || j['available'] == 1,
         stock: j['stock'] == null ? null : _toInt(j['stock']),
+        weightG: j['weight_g'] == null ? null : _toInt(j['weight_g']),
         sortOrder: _toInt(j['sort_order']),
       );
 }
@@ -117,16 +120,19 @@ class OrderCustomer {
   final String? phone;
   final String? address;
   final String? email;
+  final String? pincode;
   final double? lat;
   final double? lng;
 
-  OrderCustomer({required this.name, this.phone, this.address, this.email, this.lat, this.lng});
+  OrderCustomer(
+      {required this.name, this.phone, this.address, this.email, this.pincode, this.lat, this.lng});
 
   factory OrderCustomer.fromJson(Map<String, dynamic> j) => OrderCustomer(
         name: (j['name'] ?? '').toString(),
         phone: j['phone']?.toString(),
         address: j['address']?.toString(),
         email: j['email']?.toString(),
+        pincode: j['pincode']?.toString(),
         lat: j['lat'] == null ? null : _toDouble(j['lat']),
         lng: j['lng'] == null ? null : _toDouble(j['lng']),
       );
@@ -188,6 +194,7 @@ class Order {
   final String notes;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final Map<String, dynamic> metadata;
 
   Order({
     required this.id,
@@ -202,10 +209,16 @@ class Order {
     this.notes = '',
     this.createdAt,
     this.updatedAt,
+    this.metadata = const {},
   });
 
   int get itemCount => items.fold(0, (s, l) => s + l.quantity);
   bool get isTerminal => status == 'delivered' || status == 'cancelled';
+
+  /// Set once the order has been manifested with a courier (see /ship).
+  String? get waybill => metadata['waybill']?.toString();
+  String? get courierStatus => metadata['courier_status']?.toString();
+  bool get isShipped => waybill != null;
 
   factory Order.fromJson(Map<String, dynamic> j) => Order(
         id: j['id'].toString(),
@@ -232,5 +245,110 @@ class Order {
         notes: (j['notes'] ?? '').toString(),
         createdAt: _toDate(j['created_at']),
         updatedAt: _toDate(j['updated_at']),
+        metadata: j['metadata'] is Map ? (j['metadata'] as Map).cast<String, dynamic>() : const {},
+      );
+}
+
+/// A courier's view of one order: a waybill (AWB) plus its current status.
+class Shipment {
+  final String waybill;
+  final String status;
+  final String? rawStatus;
+  final String? trackingUrl;
+  final String? remarks;
+
+  Shipment(
+      {required this.waybill, required this.status, this.rawStatus, this.trackingUrl, this.remarks});
+
+  factory Shipment.fromJson(Map<String, dynamic> j) => Shipment(
+        waybill: (j['waybill'] ?? '').toString(),
+        status: (j['status'] ?? 'unknown').toString(),
+        rawStatus: j['raw_status']?.toString(),
+        trackingUrl: j['tracking_url']?.toString(),
+        remarks: j['remarks']?.toString(),
+      );
+}
+
+/// Response from POST .../ship — the new shipment plus the updated order.
+class ShipResult {
+  final Shipment shipment;
+  final Order order;
+  ShipResult({required this.shipment, required this.order});
+
+  factory ShipResult.fromJson(Map<String, dynamic> j) => ShipResult(
+        shipment: Shipment.fromJson((j['shipment'] as Map).cast<String, dynamic>()),
+        order: Order.fromJson((j['order'] as Map).cast<String, dynamic>()),
+      );
+}
+
+/// One set of shipping/pickup fields — used both for a tenant's own raw
+/// overrides (any field may be null = "not set, inherit the platform
+/// default") and for the merged "effective" values actually used to quote
+/// and ship.
+class ShippingSettings {
+  final String? originPin;
+  final String? originCity;
+  final String? originState;
+  final String? originAddress;
+  final String? originPhone;
+  final String? pickupLocation;
+  final String? sellerName;
+  final String? sellerGstTin;
+  final String? hsnCode;
+  final int? defaultWeightG;
+  final double? handlingFee;
+
+  ShippingSettings({
+    this.originPin,
+    this.originCity,
+    this.originState,
+    this.originAddress,
+    this.originPhone,
+    this.pickupLocation,
+    this.sellerName,
+    this.sellerGstTin,
+    this.hsnCode,
+    this.defaultWeightG,
+    this.handlingFee,
+  });
+
+  factory ShippingSettings.fromJson(Map<String, dynamic> j) => ShippingSettings(
+        originPin: j['origin_pin']?.toString(),
+        originCity: j['origin_city']?.toString(),
+        originState: j['origin_state']?.toString(),
+        originAddress: j['origin_address']?.toString(),
+        originPhone: j['origin_phone']?.toString(),
+        pickupLocation: j['pickup_location']?.toString(),
+        sellerName: j['seller_name']?.toString(),
+        sellerGstTin: j['seller_gst_tin']?.toString(),
+        hsnCode: j['hsn_code']?.toString(),
+        defaultWeightG: j['default_weight_g'] == null ? null : _toInt(j['default_weight_g']),
+        handlingFee: j['handling_fee'] == null ? null : _toDouble(j['handling_fee']),
+      );
+}
+
+/// Response from GET/PATCH .../shipping/settings: the tenant's own raw
+/// overrides ([own], blanks allowed) plus what's actually applied ([effective]).
+class TenantShippingSettings {
+  final ShippingSettings own;
+  final ShippingSettings effective;
+  TenantShippingSettings({required this.own, required this.effective});
+
+  factory TenantShippingSettings.fromJson(Map<String, dynamic> j) => TenantShippingSettings(
+        own: ShippingSettings.fromJson((j['settings'] as Map).cast<String, dynamic>()),
+        effective: ShippingSettings.fromJson((j['effective'] as Map).cast<String, dynamic>()),
+      );
+}
+
+class PickupResult {
+  final bool ok;
+  final String? pickupId;
+  final String? remarks;
+  PickupResult({required this.ok, this.pickupId, this.remarks});
+
+  factory PickupResult.fromJson(Map<String, dynamic> j) => PickupResult(
+        ok: j['ok'] == true,
+        pickupId: j['pickup_id']?.toString(),
+        remarks: j['remarks']?.toString(),
       );
 }

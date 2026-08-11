@@ -497,7 +497,14 @@ class _ItemEditorState extends State<_ItemEditor> {
   late final _desc = TextEditingController(text: widget.existing?.description ?? '');
   late final _stock = TextEditingController(
       text: widget.existing?.stock != null ? '${widget.existing!.stock}' : '');
+  late final _weight = TextEditingController(
+      text: widget.existing?.weightG != null ? '${widget.existing!.weightG}' : '');
   late bool _available = widget.existing?.available ?? true;
+  // Fresh/tiffin items are ordered on Swiggy, not this site — only items
+  // explicitly marked "SHIP" (shelf-stable goods: pickles, podi, …) use this
+  // site's own cart + Delhivery checkout. Defaults OFF so new items default to
+  // Swiggy-only, matching today's menu (all tiffins).
+  late bool _shipViaWebsite = widget.existing?.tags.contains('SHIP') ?? false;
   bool _busy = false;
   String? _err;
 
@@ -505,10 +512,17 @@ class _ItemEditorState extends State<_ItemEditor> {
 
   @override
   void dispose() {
-    for (final c in [_name, _localized, _price, _category, _icon, _image, _desc, _stock]) {
+    for (final c in [_name, _localized, _price, _category, _icon, _image, _desc, _stock, _weight]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  /// Existing tags (SPECIAL, SWEET, …) with "SHIP" added/removed per the toggle.
+  List<String> _mergedTags() {
+    final tags = List<String>.from(widget.existing?.tags ?? [])..remove('SHIP');
+    if (_shipViaWebsite) tags.add('SHIP');
+    return tags;
   }
 
   Future<void> _save() async {
@@ -523,6 +537,7 @@ class _ItemEditorState extends State<_ItemEditor> {
       return;
     }
     final stock = _stock.text.trim().isEmpty ? null : int.tryParse(_stock.text.trim());
+    final weight = _weight.text.trim().isEmpty ? null : int.tryParse(_weight.text.trim());
 
     setState(() { _busy = true; _err = null; });
     final body = <String, dynamic>{
@@ -535,6 +550,8 @@ class _ItemEditorState extends State<_ItemEditor> {
       'description': _desc.text.trim(),
       'available': _available,
       'stock': stock,
+      'weight_g': weight,
+      'tags': _mergedTags(),
     };
     try {
       if (_isEdit) {
@@ -660,6 +677,16 @@ class _ItemEditorState extends State<_ItemEditor> {
             ),
             const SizedBox(height: 12),
             TextField(
+              controller: _weight,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'Weight in grams (for shipping)',
+                hintText: 'e.g. 250 for a small jar',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
               controller: _category,
               decoration: const InputDecoration(labelText: 'Category (optional)'),
             ),
@@ -706,6 +733,27 @@ class _ItemEditorState extends State<_ItemEditor> {
                 subtitle: Text(_available ? 'Shown as in stock' : 'Shown as out of stock',
                     style: const TextStyle(fontSize: 12.5, color: Ui.muted)),
                 onChanged: (v) => setState(() => _available = v),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Ui.fieldFill,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Ui.border),
+              ),
+              child: SwitchListTile(
+                value: _shipViaWebsite,
+                activeTrackColor: Ui.indigo,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                title: const Text('Ship via this website', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                subtitle: Text(
+                  _shipViaWebsite
+                      ? 'Sold here — goes in the cart, ships via Delhivery'
+                      : 'Fresh item — customers order this on Swiggy instead',
+                  style: const TextStyle(fontSize: 12.5, color: Ui.muted),
+                ),
+                onChanged: (v) => setState(() => _shipViaWebsite = v),
               ),
             ),
             if (_err != null) ...[

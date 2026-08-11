@@ -1,5 +1,15 @@
 # Build + install CreateCart Admin on the attached Android phone.
 # Sets JDK 17 + Flutter on PATH, builds a release APK, installs it.
+#
+# Usage:
+#   ./build.ps1                 builds the "prod" flavor (talks to the live API)
+#   ./build.ps1 -Local           builds "local" (installs alongside prod; needs
+#                                 -ApiBase, e.g. http://localhost:8000 via
+#                                 `adb reverse tcp:8000 tcp:8000` for a real device)
+param(
+    [switch]$Local,
+    [string]$ApiBase = "http://localhost:8000"
+)
 $ErrorActionPreference = "Stop"
 
 $env:JAVA_HOME = "D:\jdk17\jdk-17.0.19+10"
@@ -10,10 +20,15 @@ Set-Location $PSScriptRoot
 Write-Host "==> flutter pub get" -ForegroundColor Cyan
 flutter pub get
 
-Write-Host "==> building release APK" -ForegroundColor Cyan
-flutter build apk --release
+$flavor = if ($Local) { "local" } else { "prod" }
+Write-Host "==> building release APK (flavor: $flavor)" -ForegroundColor Cyan
+if ($Local) {
+    flutter build apk --release --flavor local "--dart-define=API_BASE=$ApiBase"
+} else {
+    flutter build apk --release --flavor prod
+}
 
-$apk = "build\app\outputs\flutter-apk\app-release.apk"
+$apk = "build\app\outputs\flutter-apk\app-$flavor-release.apk"
 if (-not (Test-Path $apk)) { throw "APK not found at $apk" }
 Write-Host "Built $apk" -ForegroundColor Green
 
@@ -23,6 +38,12 @@ if (-not $devices) {
     exit 0
 }
 
+if ($Local) {
+    Write-Host "==> adb reverse tcp:8000 tcp:8000 (phone's localhost:8000 -> this PC)" -ForegroundColor Cyan
+    adb reverse tcp:8000 tcp:8000
+}
+
 Write-Host "==> installing on phone" -ForegroundColor Cyan
 adb install -r $apk
-Write-Host "Done. Launch 'CreateCart Admin' on your phone." -ForegroundColor Green
+$label = if ($Local) { "CreateCart Admin (Local)" } else { "CreateCart Admin" }
+Write-Host "Done. Launch '$label' on your phone." -ForegroundColor Green

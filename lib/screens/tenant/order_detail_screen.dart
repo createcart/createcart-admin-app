@@ -21,6 +21,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   late Order _order = widget.initial;
   bool _busy = false;
   bool _changed = false;
+  Shipment? _tracked; // latest courier status pulled via "Refresh tracking"
 
   Session get _s => context.read<Session>();
 
@@ -83,6 +84,42 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       }
       return o;
     }, dispatch ? 'Out for delivery' : 'Delivery partner updated');
+  }
+
+  /// Manifest a real Delhivery shipment and dispatch — a one-tap alternative to
+  /// manually typing a delivery partner's name/phone.
+  Future<void> _shipViaDelhivery() async {
+    await _run(() async {
+      final result = await _s.api.shipOrder(_s.tenantSlug, _s.tenantKey, _order.id);
+      var o = result.order;
+      if (o.status == 'preparing') {
+        o = await _s.api.setOrderStatus(_s.tenantSlug, _s.tenantKey, _order.id, 'out_for_delivery');
+      }
+      return o;
+    }, 'Shipped via Delhivery — out for delivery');
+  }
+
+  Future<void> _refreshTracking() async {
+    setState(() => _busy = true);
+    try {
+      final shipment = await _s.api.refreshTracking(_s.tenantSlug, _s.tenantKey, _order.id);
+      if (mounted) setState(() => _tracked = shipment);
+    } on ApiException catch (e) {
+      if (mounted) toast(context, e.detail);
+    } catch (_) {
+      if (mounted) toast(context, 'Network error — try again');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openTrackingLink() async {
+    final url = _order.courier?.trackingUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Future<String?> _askText({
@@ -149,9 +186,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           status: o.status,
           busy: _busy,
           hasCourier: o.courier != null,
+          canShipDelhivery: o.customer?.pincode != null && o.customer!.pincode!.isNotEmpty && !o.isShipped,
           onAccept: _accept,
           onPrepare: _prepare,
           onDispatch: () => _assignCourier(dispatch: true),
+          onShipDelhivery: _shipViaDelhivery,
           onDelivered: _delivered,
           onCancel: _cancel,
           onUpdateCourier: () => _assignCourier(dispatch: false),
@@ -245,6 +284,44 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
               ),
             if (o.courier != null) const SizedBox(height: 14),
+
+            // courier shipment (waybill + live tracking)
+            if (o.isShipped)
+              _SectionCard(
+                title: 'Shipment',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _kv(Icons.qr_code_2_rounded, 'Waybill ${o.waybill}'),
+                    _kv(Icons.local_shipping_rounded,
+                        _tracked?.rawStatus ?? o.courierStatus ?? 'Manifested'),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        if (o.courier?.trackingUrl != null && o.courier!.trackingUrl!.isNotEmpty)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _openTrackingLink,
+                              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                              label: const Text('Track'),
+                              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 42)),
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _busy ? null : _refreshTracking,
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            label: const Text('Refresh'),
+                            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 42)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            if (o.isShipped) const SizedBox(height: 14),
 
             // timeline
             _SectionCard(
@@ -375,14 +452,17 @@ class _ActionBar extends StatelessWidget {
   final String status;
   final bool busy;
   final bool hasCourier;
-  final VoidCallback onAccept, onPrepare, onDispatch, onDelivered, onCancel, onUpdateCourier;
+  final bool canShipDelhivery;
+  final VoidCallback onAccept, onPrepare, onDispatch, onShipDelhivery, onDelivered, onCancel, onUpdateCourier;
   const _ActionBar({
     required this.status,
     required this.busy,
     required this.hasCourier,
+    required this.canShipDelhivery,
     required this.onAccept,
     required this.onPrepare,
     required this.onDispatch,
+    required this.onShipDelhivery,
     required this.onDelivered,
     required this.onCancel,
     required this.onUpdateCourier,
@@ -455,6 +535,17 @@ class _ActionBar extends StatelessWidget {
               label: Text(busy ? 'Working…' : primaryLabel),
             ),
           ),
+          if (status == 'preparing' && canShipDelhivery) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : onShipDelhivery,
+                icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                label: const Text('Ship via Delhivery'),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Row(
             children: [

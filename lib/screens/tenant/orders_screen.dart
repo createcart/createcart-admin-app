@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../api.dart';
 import '../../models.dart';
 import '../../session.dart';
 import '../../theme.dart';
@@ -44,6 +46,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
       appBar: AppBar(
         title: const Text('Orders'),
         actions: [
+          IconButton(
+            onPressed: () => _openPickupSheet(context),
+            icon: const Icon(Icons.local_shipping_outlined),
+            tooltip: 'Request pickup',
+          ),
           IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh'),
         ],
       ),
@@ -118,6 +125,139 @@ class _OrdersScreenState extends State<OrdersScreen> {
       MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: o.id, initial: o)),
     );
     if (changed == true) _refresh();
+  }
+
+  Future<void> _openPickupSheet(BuildContext context) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Ui.surface,
+      builder: (_) => const _PickupSheet(),
+    );
+  }
+}
+
+/// Asks the courier (Delhivery) to collect today's manifested shipments.
+class _PickupSheet extends StatefulWidget {
+  const _PickupSheet();
+  @override
+  State<_PickupSheet> createState() => _PickupSheetState();
+}
+
+class _PickupSheetState extends State<_PickupSheet> {
+  DateTime _date = DateTime.now();
+  TimeOfDay _time = const TimeOfDay(hour: 17, minute: 0);
+  final _count = TextEditingController(text: '1');
+  bool _busy = false;
+  String? _err;
+
+  @override
+  void dispose() {
+    _count.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(context: context, initialTime: _time);
+    if (picked != null) setState(() => _time = picked);
+  }
+
+  Future<void> _submit() async {
+    final count = int.tryParse(_count.text.trim());
+    if (count == null || count <= 0) {
+      setState(() => _err = 'Enter how many packages are ready');
+      return;
+    }
+    setState(() { _busy = true; _err = null; });
+    final s = context.read<Session>();
+    final dateStr =
+        '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}';
+    final timeStr = '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
+    try {
+      final result = await s.api.schedulePickup(
+        s.tenantSlug, s.tenantKey, date: dateStr, time: timeStr, packageCount: count,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      toast(context, result.pickupId != null
+          ? 'Pickup requested — #${result.pickupId}'
+          : 'Pickup requested');
+    } on ApiException catch (e) {
+      setState(() { _busy = false; _err = e.detail; });
+    } catch (_) {
+      setState(() { _busy = false; _err = 'Network error — try again'; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pad = MediaQuery.of(context).viewInsets.bottom;
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 4, 20, 20 + pad),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Request pickup', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            const Text('Ask Delhivery to collect today\'s manifested shipments.',
+                style: TextStyle(color: Ui.muted, fontSize: 13)),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickDate,
+                    icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                    label: Text(DateFormat('d MMM').format(_date)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickTime,
+                    icon: const Icon(Icons.schedule_rounded, size: 16),
+                    label: Text(_time.format(context)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _count,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(labelText: 'Packages ready for pickup'),
+            ),
+            if (_err != null) ...[
+              const SizedBox(height: 10),
+              Text(_err!, style: const TextStyle(color: Ui.danger, fontSize: 13)),
+            ],
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: _busy ? null : _submit,
+              icon: _busy
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white))
+                  : const Icon(Icons.local_shipping_rounded, size: 18),
+              label: Text(_busy ? 'Requesting…' : 'Request pickup'),
+              style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 52)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

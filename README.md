@@ -45,6 +45,8 @@ The signed-in session (role + credentials) is persisted on the device with `shar
 - **One item:** tap it → editor → **🗑** to delete, or edit any field and **Save**.
 - **Stock toggles are staged:** flip any number of items in/out of stock, then a **Save bar** applies them together and re-queries — so rapid toggles never race or show stale state. **Discard** reverts.
 - **Whole menu:** **⋮ → Delete entire menu** (type `DELETE`) removes every item + combo (keeps categories).
+- **Weight (grams):** set per item — drives accurate delivery quotes and the declared shipment weight. Blank uses the platform default.
+- **Ship via this website:** toggle per item, in the item editor. On = the item is sold on this site's own cart and ships via Delhivery (shelf-stable goods like pickles/podi). Off (default) = a fresh/tiffin item — not sold here, only via the storefront's Swiggy link. Stored as a `SHIP` tag on the item, no schema change.
 
 ---
 
@@ -58,8 +60,19 @@ placed  ->  confirmed  ->  preparing  ->  out_for_delivery  ->  delivered
    \---------------- Cancel (any non-terminal state) ----------------/
 ```
 
-- **Assign partner & dispatch** captures the delivery partner's name/phone, then moves the order to *out for delivery*.
-- Order detail shows the customer (one-tap **Call** and **Map**), itemised bill, the delivery partner, and a full status timeline.
+- **Assign partner & dispatch** captures the delivery partner's name/phone, then moves the order to *out for delivery* — for your own riders.
+- **Ship via Delhivery** (shown instead, once the order has a confirmed pincode from checkout) manifests a real courier shipment — generates a waybill, assigns "Delhivery" as the courier with a tracking link, then dispatches. The order card then shows the waybill, live courier status, and **Track** / **Refresh** actions.
+- **Request pickup** (Orders → 🚚 icon) asks the courier to collect the day's manifested shipments.
+- Order detail shows the customer (one-tap **Call** and **Map**), itemised bill, the delivery partner or shipment, and a full status timeline.
+- Cancelling a shipped order also cancels the courier-side shipment (best-effort).
+
+> Shipping runs on a **mock courier** until you configure `DELHIVERY_API_TOKEN` + `DELHIVERY_PICKUP_LOCATION` on the API — see that repo's README. The mock is fully functional for testing the whole flow end-to-end.
+
+---
+
+## Shipping settings (business, Account tab)
+
+Each business sets its **own** pickup pincode/city/state/address/phone, Delhivery warehouse name (`pickup_location`), seller name/GST/HSN, default item weight and handling fee — the platform has one Delhivery account, but every tenant ships from a different address. A field left blank falls back to the platform-wide default (shown as a hint) — nothing needs to be filled in to keep using the platform's own pickup address. Backed by `GET`/`PATCH /api/{tenant}/shipping/settings` on the API.
 
 ---
 
@@ -81,6 +94,7 @@ lib/
     tenant/orders_screen.dart     list + filters + summary
     tenant/order_detail_screen.dart  status actions + courier + timeline
     tenant/menu_admin_screen.dart    list, out-of-stock toggle, item editor
+    tenant/shipping_settings_screen.dart  pickup address, seller info, weight & fee
 ```
 
 ---
@@ -100,9 +114,25 @@ flutter build apk --release              # build/app/outputs/flutter-apk/app-rel
 
 On Windows you can use the helper: `./build.ps1` (sets JAVA_HOME + builds + installs on the attached phone).
 
-**API endpoint** is in `lib/config.dart` (`AppConfig.apiBase`, default the production Vercel API). For a local API use the Android emulator host `http://10.0.2.2:8000`, or your PC's LAN IP on a physical device.
+**API endpoint** is in `lib/config.dart` (`AppConfig.apiBase`, default the production Vercel API), overridable at build time with `--dart-define=API_BASE=<url>`. For a local API use the Android emulator host `http://10.0.2.2:8000`, or your PC's LAN IP / `adb reverse tcp:8000 tcp:8000` on a physical device.
 
 `applicationId` is `in.createcart.createcart_admin`.
+
+### Testing against a local API without touching prod
+
+Two Android **product flavors** let you install a second, separate app alongside the real one:
+
+- `prod` (default) — `in.createcart.createcart_admin`, talks to the production API, app name "CreateCart Admin".
+- `local` — `in.createcart.createcart_admin.local`, app name "CreateCart Admin (Local)", `API_BASE` baked in at build time.
+
+```bash
+./build.ps1 -Local -ApiBase http://localhost:8000   # or your dev API's URL
+# equivalently:
+flutter build apk --release --flavor local --dart-define=API_BASE=http://localhost:8000
+adb reverse tcp:8000 tcp:8000   # phone's localhost:8000 -> your PC, for a real device
+```
+
+Both flavors install side by side — the local build never overwrites the production install.
 
 ---
 
